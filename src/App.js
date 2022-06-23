@@ -4,9 +4,15 @@ import './App.css';
 
 function Gif({fetchedObject}) {
   // paramater should be an object sent by giphy api
+  // i dont understand anymore maybe ill come back when i know more abt react and promises
+  let obj; 
+  fetchedObject.then(r => {
+    obj = r.json
+  });
+  console.log(obj)
 return (
   <div id='gifDiv'>
-      <img alt='the gif that was loaded' src={fetchedObject.data.images.original.url}/>
+      <img alt='the gif that was loaded' />
     </div>
   )
 }
@@ -14,47 +20,49 @@ return (
 
 function App() {
   const [searchTerm, setSearchTerm] = React.useState('tokyo');
-  const [response, setResponse] = React.useState(() => {
-    fetchApi().then(result => setResponse(result))
+  const [[wProm, gProm], setWpromGprom] = React.useState(() => {
+    // no api fetch on page load to avoid exceeding the limit of the weather api
+    // fetchApi().then(result => setResponse(result));
+    return ''
   })
   
   React.useEffect(() => {
-    console.log('effect', response)
+    console.log('effect', [wProm, gProm])
     
-  }, [response])
+  }, [wProm, gProm])
 
   function submitHandler(e) {
     e.preventDefault();
-    fetchApi().then(result => setResponse(result));
+    fetchApi().then(result => setWpromGprom(result));
   }
 
   return (
     <div className="App">
-      <h1>Hey ho</h1>
+      <h1>Hey ho search:{searchTerm}</h1>
       <form onSubmit={submitHandler}>
         <input id='text' type='text' onChange={(e) => setSearchTerm(e.target.value)}/>
         <input id='sbtn' type='submit' />
       </form>
-      {response ? <Gif fetchedObject={response}/> : null}
+      {gProm ? <Gif fetchedObject={gProm}/> : null}
     </div>
   );
   
-async function fetchApi() {    
-  const giphyApi = `https://api.giphy.com/v1/gifs/translate?api_key=rpbWQ0CSEoOJ4QMjk94L3bhXndUqX44E&s=${searchTerm}`;
+  async function fetchApi() {
+    const fetchCoordinates = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${searchTerm}&limit=1&appid=ba447610937f7d0cb764ec8662d02a38`, {mode: 'cors'});
+    const fCoordJson = await fetchCoordinates.json();
+    const {lat, lon} = fCoordJson[0];
 
-  const geoCodingApi = `https://api.openweathermap.org/geo/1.0/direct?q=${searchTerm}&limit=1&appid=ba447610937f7d0cb764ec8662d02a38`;
 
-  // const currentWeatherApi = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longtitude}&appid=ba447610937f7d0cb764ec8662d02a38`
+    const fetchWeather = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=ba447610937f7d0cb764ec8662d02a38`, {mode: 'cors'});
+    
+    const fetchGif = await fetch(`https://api.giphy.com/v1/gifs/translate?api_key=rpbWQ0CSEoOJ4QMjk94L3bhXndUqX44E&s=${searchTerm}`, {mode: 'cors'});
 
-  const fetchCoordinates = await fetch(geoCodingApi, {mode: 'cors'});
-  const fCoordJson = await fetchCoordinates.json();
-  console.log(fCoordJson[0])
-  // have to use the coordinates here to get the actual weather data
-  
-  const fetchResponse = await fetch(giphyApi, {mode: 'cors'});
-  const responseJson = await fetchResponse.json();
-  return responseJson;
-}
+    
+    const allProm = await Promise.all([fetchWeather, fetchGif]);
+    const  allPromArray = allProm.map(r => r.json())
+    
+    return allPromArray;      
+  }
 }
 
 export default App;
